@@ -1,0 +1,90 @@
+---
+title: "Personal Assignment"
+author: "Brian Gorter"
+date: "12-11-2017"
+output: ioslides_presentation
+runtime: shiny
+---
+
+Which universities score the best in research?
+
+Loading need libraries 
+```{r}
+install.packages("shinydashboard")
+install.packages("ggplot2")
+install.packages("shinyjs")
+library(shinydashboard)
+library("data.table")
+library(shiny)
+library(ggplot2)
+library(shinyjs)
+
+```
+
+Loading the data 
+```{r}
+data <- fread("./data/timesData.csv", na.strings = c("", "-"), encoding = "UTF-8")
+data [,num_students := as.numeric(sub(pattern=",", replacement="", num_students))]
+```
+
+possible correlation
+
+```{r}
+pairs(~international+teaching+research+citations+income+total_score+student_staff_ratio+year,data = data)
+```
+
+The shiny application
+
+```{R}
+
+library(shiny)
+
+return_plot <- function(func, input){
+  return(renderPlot({
+    yeardata <- data[year == input$year]
+    yeardata <- yeardata[order(research, decreasing = T),]
+    ggplot(data = func(yeardata,10), aes(university_name,research, fill = university_name)) +
+      geom_bar(stat = "identity") + 
+      theme(axis.title.x=element_blank(),
+            axis.text.x=element_blank(),
+            axis.ticks.x=element_blank())+ 
+      labs(fill='Unitversities') 
+  }))
+}
+
+ui <- dashboardPage(
+  dashboardHeader(title = "Research"),
+  dashboardSidebar(),
+  dashboardBody(
+        useShinyjs(),
+        fluidRow(
+            box(width = 10,
+                title = "Best 10",
+                plotOutput("plot1", height = 300)
+            ),
+            box(width = 2,
+                title = "Year",
+                sliderInput("year", "Year", min(data$year), max(data$year), 2016, step = 1)
+            )
+        ),
+        fluidRow(
+            box(width = 12,
+            title = "Worst 10",
+            plotOutput("plot2", height = 300)
+          )
+        )
+    
+  )
+)
+
+# Define server logic required to draw a histogram
+server <- function(input, output) {
+  addClass(selector = "body", class = "sidebar-collapse")
+  output$plot1 <- return_plot(head, input)
+  output$plot2 <- return_plot(tail, input)
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)
+
+```
